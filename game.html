@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>敲醒夢中人 — 選擇題測驗</title>
+<style>
+:root {
+  --bg-dark: #0a0e1a;
+  --accent: #c9a84c;
+  --accent-light: #e8c97a;
+  --text-main: #f0e6d3;
+  --text-dim: #9b8f7a;
+  --correct: #4ade80;
+  --wrong: #f87171;
+  --card-bg: rgba(255,255,255,0.06);
+  --radius: 16px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: "PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif;
+  background: var(--bg-dark); color: var(--text-main);
+  min-height:100vh; overflow-x:hidden;
+}
+.bg { position:fixed; inset:0; z-index:0;
+    background:
+      radial-gradient(ellipse at 25% 0%, #1a1a3e 0%, transparent 60%),
+      radial-gradient(ellipse at 75% 100%, #1a0a2e 0%, transparent 60%);
+}
+.bg::after {
+  content:''; position:absolute; inset:0;
+  background-image:
+    radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1px 1px at 45% 15%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 75% 35%, rgba(201,168,76,0.3), transparent),
+    radial-gradient(1px 1px at 30% 65%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 85% 75%, rgba(201,168,76,0.2), transparent);
+}
+#app { position:relative; z-index:1; min-height:100vh; }
+
+.screen { display:none; flex-direction:column; align-items:center; justify-content:center;
+  min-height:100vh; padding:24px 16px; animation: fadeIn 0.5s ease; }
+.screen.active { display:flex; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pop { 0%{transform:scale(0.8);opacity:0} 70%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+@keyframes slideUp { from{transform:translateY(30px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
+
+.cover-title { font-size:clamp(2rem,8vw,3.5rem); font-weight:700; color:var(--accent);
+  text-align:center; letter-spacing:0.1em; text-shadow:0 0 40px rgba(201,168,76,0.4); line-height:1.3; }
+.cover-sub { margin-top:16px; font-size:1.1rem; color:var(--text-dim); text-align:center; letter-spacing:0.05em; }
+.cover-desc { margin-top:32px; max-width:480px; text-align:center; color:var(--text-dim); line-height:1.8; font-size:0.95rem; }
+.cover-btn { margin-top:48px; padding:16px 56px; font-size:1.1rem; font-weight:600;
+  color:var(--bg-dark); background:var(--accent); border:none; border-radius:50px;
+  cursor:pointer; letter-spacing:0.1em; transition:all 0.3s; box-shadow:0 0 30px rgba(201,168,76,0.3); }
+.cover-btn:hover { background:var(--accent-light); transform:translateY(-2px); }
+.moon { width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle at 40% 40%,#ffe8a0,#c9a84c);
+  box-shadow:0 0 60px rgba(201,168,76,0.5);margin-bottom:32px;animation:pulse 4s ease-in-out infinite; }
+
+.ch-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; width:100%; max-width:720px; }
+.ch-card { background:var(--card-bg); border:1px solid rgba(201,168,76,0.25); border-radius:var(--radius);
+  padding:24px 20px; cursor:pointer; transition:all 0.3s; text-align:left; position:relative; overflow:hidden; }
+.ch-card::before { content:''; position:absolute; top:0;left:0;right:0; height:3px;
+  background:linear-gradient(90deg,var(--accent),transparent); opacity:0; transition:opacity 0.3s; }
+.ch-card:hover { border-color:var(--accent); background:rgba(201,168,76,0.08); transform:translateY(-3px); }
+.ch-card:hover::before { opacity:1; }
+.ch-card.locked { opacity:0.35; cursor:not-allowed; }
+.ch-card.locked:hover { transform:none; border-color:rgba(201,168,76,0.25); background:var(--card-bg); }
+.ch-num { font-size:0.75rem; color:var(--accent); letter-spacing:0.1em; margin-bottom:8px; }
+.ch-name { font-size:1.2rem; font-weight:700; color:var(--text-main); margin-bottom:6px; }
+.ch-desc { font-size:0.85rem; color:var(--text-dim); line-height:1.6; }
+.ch-stars { margin-top:12px; color:var(--accent); font-size:0.8rem; letter-spacing:2px; }
+.ch-progress-bar { width:100%; max-width:720px; height:4px; background:rgba(255,255,255,0.1);
+  border-radius:4px; margin-bottom:32px; overflow:hidden; }
+.ch-progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent-light));
+  border-radius:4px; transition:width 0.5s ease; }
+.screen-title { font-size:1rem; color:var(--text-dim); letter-spacing:0.1em; margin-bottom:24px; }
+
+.quiz-meta { display:flex; gap:16px; align-items:center; font-size:0.85rem; color:var(--text-dim);
+  margin-bottom:20px; width:100%; max-width:600px; }
+.quiz-meta .dot { width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0; }
+.progress-track { width:100%;max-width:600px;height:4px;background:rgba(255,255,255,0.08);
+  border-radius:4px;margin-bottom:32px;overflow:hidden; }
+.progress-fill { height:100%;background:var(--accent);border-radius:4px;transition:width 0.4s ease; }
+.q-card { background:var(--card-bg);border:1px solid rgba(201,168,76,0.25);border-radius:var(--radius);
+  padding:32px 28px;width:100%;max-width:600px;animation:pop 0.4s ease; }
+.q-text { font-size:1.05rem;line-height:1.9;color:var(--text-main);margin-bottom:28px;font-weight:500; }
+.q-text .emoji { font-size:1.3rem;margin-right:6px; }
+.options { display:flex;flex-direction:column;gap:12px; }
+.opt-btn { width:100%;padding:15px 18px;background:rgba(255,255,255,0.04);
+  border:1.5px solid rgba(255,255,255,0.1);border-radius:12px;color:var(--text-main);
+  font-size:0.98rem;text-align:left;cursor:pointer;transition:all 0.25s;
+  display:flex;align-items:flex-start;gap:12px;line-height:1.6; }
+.opt-btn:hover:not(:disabled) { border-color:var(--accent);background:rgba(201,168,76,0.1);transform:translateX(4px); }
+.opt-btn:disabled { cursor:default; }
+.opt-letter { width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;
+  flex-shrink:0;color:var(--text-dim);transition:all 0.25s; }
+.opt-btn.correct { border-color:var(--correct);background:rgba(74,222,128,0.12); }
+.opt-btn.correct .opt-letter { background:var(--correct);color:#0a1a0a; }
+.opt-btn.wrong { border-color:var(--wrong);background:rgba(248,113,113,0.12); }
+.opt-btn.wrong .opt-letter { background:var(--wrong);color:#1a0a0a; }
+.opt-btn.dim { opacity:0.35; }
+
+.feedback { margin-top:20px;padding:18px 20px;border-radius:12px;width:100%;max-width:600px;
+  animation:slideUp 0.4s ease;line-height:1.8;font-size:0.93rem; }
+.feedback.correct-fb { background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);color:var(--correct); }
+.feedback.wrong-fb { background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--wrong); }
+.feedback-label { font-weight:700;font-size:0.85rem;letter-spacing:0.1em;margin-bottom:6px; }
+
+.next-btn { margin-top:22px;width:100%;max-width:600px;padding:14px;border:none;border-radius:12px;
+  font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.3s;letter-spacing:0.05em;
+  background:var(--accent);color:var(--bg-dark); }
+.next-btn:hover { background:var(--accent-light); }
+.next-btn.hidden { display:none; }
+
+.result-card { background:var(--card-bg);border:1px solid rgba(201,168,76,0.25);border-radius:20px;
+  padding:40px 32px;max-width:520px;width:100%;text-align:center;animation:pop 0.5s ease; }
+.result-score { font-size:4rem;font-weight:800;color:var(--accent);line-height:1;margin-bottom:8px; }
+.result-label { font-size:0.9rem;color:var(--text-dim);margin-bottom:24px;letter-spacing:0.1em; }
+.result-msg { font-size:1.1rem;line-height:1.9;color:var(--text-main);margin-bottom:32px; }
+.result-actions { display:flex;gap:12px;justify-content:center;flex-wrap:wrap; }
+.btn-primary { padding:12px 32px;background:var(--accent);color:var(--bg-dark);border:none;
+  border-radius:50px;font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.3s; }
+.btn-primary:hover { background:var(--accent-light);transform:translateY(-2px); }
+.btn-secondary { padding:12px 32px;background:transparent;color:var(--accent);
+  border:1.5px solid var(--accent);border-radius:50px;font-size:1rem;font-weight:600;
+  cursor:pointer;transition:all 0.3s; }
+.btn-secondary:hover { background:rgba(201,168,76,0.1); }
+
+.final-card { max-width:560px;width:100%;text-align:center;animation:pop 0.6s ease; }
+.final-title { font-size:clamp(1.8rem,6vw,2.8rem);font-weight:800;color:var(--accent);
+  text-shadow:0 0 40px rgba(201,168,76,0.4);margin-bottom:16px; }
+.final-total { font-size:3rem;font-weight:800;color:var(--accent-light);margin:24px 0 8px; }
+.final-verse { margin:32px 0;padding:24px;background:var(--card-bg);border:1px solid rgba(201,168,76,0.25);
+  border-radius:16px;line-height:2;color:var(--text-main);font-size:1.05rem;font-style:italic; }
+.final-verse .attr { color:var(--accent);font-size:0.85rem;font-style:normal;margin-top:10px;display:block; }
+
+.back-btn { position:fixed;top:20px;left:20px;background:rgba(255,255,255,0.06);
+  border:1px solid rgba(255,255,255,0.12);color:var(--text-dim);padding:8px 16px;
+  border-radius:50px;font-size:0.85rem;cursor:pointer;transition:all 0.3s;z-index:10; }
+.back-btn:hover { background:rgba(255,255,255,0.12);color:var(--text-main); }
+</style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div id="app">
+
+  <div class="screen active" id="s-cover">
+    <div class="moon"></div>
+    <div class="cover-title">敲醒夢中人</div>
+    <div class="cover-sub">一場輕鬆的內心小測驗</div>
+    <p class="cover-desc">六個生活場景，十八道題目。<br>沒有對錯，只有更認識自己。<br>做完就像醒了一場小夢。</p>
+    <button class="cover-btn" id="btnStart">開始測驗</button>
+  </div>
+
+  <div class="screen" id="s-chapters">
+    <button class="back-btn" id="btnHome">← 返回</button>
+    <div class="screen-title">選擇關卡</div>
+    <div class="ch-progress-bar"><div class="ch-progress-fill" id="chProg"></div></div>
+    <div class="ch-grid" id="chGrid"></div>
+  </div>
+
+  <div class="screen" id="s-quiz">
+    <button class="back-btn" id="btnExit">← 返回</button>
+    <div class="quiz-meta"><span><span class="dot"></span> <span id="quizChName"></span></span> <span id="quizCounter"></span></div>
+    <div class="progress-track"><div class="progress-fill" id="qProg"></div></div>
+    <div class="q-card">
+      <div class="q-text" id="qText"></div>
+      <div class="options" id="optList"></div>
+    </div>
+    <div id="feedback"></div>
+    <button class="next-btn hidden" id="nextBtn">下一題 →</button>
+  </div>
+
+  <div class="screen" id="s-result">
+    <div class="result-card" id="resultCard"></div>
+  </div>
+
+  <div class="screen" id="s-final">
+    <div class="final-card" id="finalCard"></div>
+  </div>
+
+</div>
+
+<script>
+const CHAPTERS = [
+  {
+    name:"你眼中的世界",
+    tag:"同一件事，每個人看到的不一樣",
+    questions:[
+      {
+        text:"早上收到一則訊息，對方只回了一個「嗯」。你的直覺反應是？",
+        emoji:"💬",
+        options:["他是不是不高興了？我是不是說錯什麼了？","他可能在忙，隨手回一下很正常","算了懶得想，反正也不重要","他就是這種人，一直很敷衍"],
+        correct:1,
+        ok:"你沒有過度解讀。同一個「嗯」，演員只有一個——就是你的心。",
+        no:"你用自己的劇本幫他加了一整場戲。"
+      },
+      {
+        text:"排隊時有人突然插隊到你前面，你第一個冒出來的想法是？",
+        emoji:"😤",
+        options:["他一定有急事，算了吧","這個人沒水準，欠教訓","我也要插回去，不然吃虧","無所謂，反正也不趕時間"],
+        correct:0,
+        ok:"你想到的是「他可能有原因」。這不是軟弱，而是願意先給對方一個空間。",
+        no:"你已經在心裡幫他開庭判罪了。但事實上，你根本還不知道他經歷了什麼。"
+      },
+      {
+        text:"你跟朋友說了一件小事，對方回你：「你想太多了。」這句話讓你感覺？",
+        emoji:"🤔",
+        options:["有點受傷，好像自己的感受不被承認","好吧，也許真的是我想太多","他不懂我，下次不說了","無所謂，每個人看法不同"],
+        correct:3,
+        ok:"你沒有把對方的話當成事實，只是當成一種觀點。這就是「看得清楚，又不在乎」。",
+        no:"別人的一句話就讓你懷疑自己的感受。問題不在那句話，在你把它的重量放太大了。"
+      }
+    ]
+  },
+  {
+    name:"到底是誰在折磨你",
+    tag:"那件事早過去了，留下來的是你自己",
+    questions:[
+      {
+        text:"開會時被主管當眾罵了一頓，回家後你躺在床上，腦中還在重播那個場景。這時候誰在折磨你？",
+        emoji:"😣",
+        options:["主管，他不該這樣讓我沒面子","是我自己，把那段畫面一直按下重播","是命運，為什麼倒楣的總是我","不知道，反正就是過不去"],
+        correct:1,
+        ok:"主管早就散會回家了，只有你還在開那一場會。",
+        no:"他的聲音早就消散在空氣裡了。你以為是他在折磨你，其實是你不願意把遙控器交出來。"
+      },
+      {
+        text:"上個月跟某人大吵一架，到現在想到這件事還是會氣。你氣的是誰？",
+        emoji:"🔥",
+        options:["那個人，他真的太過分了","我自己，為什麼要跟那種人計較","命運，為什麼讓我遇到這種人","兩邊都有問題，但主要是他"],
+        correct:1,
+        ok:"你說「為什麼要跟他計較」，就代表你知道這件事還沒放下。放下不為他，是為自己。",
+        no:"一個月前的那個人，此刻正在某處正常生活，只有你還在替那場架付出情緒成本。"
+      },
+      {
+        text:"朋友答應幫你某件事，後來完全忘了。你再想起這件事時，心情是？",
+        emoji:"😞",
+        options:["有點失望，但算了每個人都會忘","有點生氣，覺得他不重視我","算了，以後不麻煩他了","不會怎樣，反正我也不太在意"],
+        correct:0,
+        ok:"失望是正常的，但願意放下就不會變成怨恨。能區分情緒和執著，是一種成熟。",
+        no:"你把「忘記」詮釋成「不重視」。但也許他只是真的很忙，忘了而已。"
+      }
+    ]
+  },
+  {
+    name:"念頭這傢伙管不了",
+    tag:"不要跟念頭打架，放著它走就好",
+    questions:[
+      {
+        text:"睡前腦中突然冒出一個很荒謬的念頭（像是「如果我沒出生會怎樣」），你會？",
+        emoji:"🌙",
+        options:["認真想了起來，想出一套理論","覺得很好笑，繼續翻個身睡","有點害怕，強迫自己不要想","乾脆拿起手機查相關的東西"],
+        correct:1,
+        ok:"一個奇怪的念頭來了，你笑一笑，它就走了。念頭不需要被消滅，只需要被忽略。",
+        no:"你認真對待每一個念頭，念頭就以為自己是重要人物。實際上它只是路過的。"
+      },
+      {
+        text:"減肥期間很想吃宵夜，你知道不該吃，但腦中一直有個聲音說：「就吃一次沒關系。」你會？",
+        emoji:"🍜",
+        options:["理性戰勝，忍住了","吃了，然後罪惡感一整晚","告訴自己：想吃就吃，吃完就放下","乾脆去睡覺，眼不見為淨"],
+        correct:2,
+        ok:"「想吃就吃，吃完就放下」——不是放縱，而是允許念頭存在，同時不把它當成命令。",
+        no:"不是忍住就好，因為那個「想吃」的念頭永遠會回來。學會跟它共處，而不是跟它戰鬥。"
+      },
+      {
+        text:"考試前你很焦慮，一直想著「我會不會考砸」，怎麼想辦法都停不下來。最有效的方式是？",
+        emoji:"📚",
+        options:["找更多事情填滿自己，讓自己沒時間焦慮","允許焦慮在，繼續做該做的事","找朋友傾訴，獲得心理支持","告訴自己「不要想了」，強迫轉移注意力"],
+        correct:1,
+        ok:"越想消滅焦慮，焦慮就越明顯。允許它在那裡，同時繼續往前走——這才是真正的面對。",
+        no:"轉移注意力只是逃避，念頭只是暫時躲起來。真正的解決，是知道念頭不是命令。"
+      }
+    ]
+  },
+  {
+    name:"做完就放下，做得到嗎",
+    tag:"做好該做的，結果不是你的事",
+    questions:[
+      {
+        text:"你花了三天準備一個提案，報告完後你一直想著：「老闆會怎麼看？」這時候你？",
+        emoji:"📋",
+        options:["正常，結果當然很重要","想東想西也改變不了什麼，不如做下一件事","發訊息問同事的看法，參考一下","焦慮到睡不好，一直想各種可能的後果"],
+        correct:1,
+        ok:"你已經把能做的都做了，結果是老闆的功課，不是你的。盡分就夠了，不必同時扛走別人的責任。",
+        no:"你的心已經做完了工作，但卻拒絕下班。盡分之後，是隨緣，不是繼續折磨自己。"
+      },
+      {
+        text:"你用心照顧生病的家人，但對方態度還是不好，你覺得？",
+        emoji:"🏠",
+        options:["很委屈，我這麼用心，他怎麼這樣","他有他的功課，我做好我該做的就好","算了，下次不要這麼用心","希望他能感受到，遲早會懂的"],
+        correct:1,
+        ok:"照顧是你的「盡分」，他的回應是他的功課。你無法替別人修行。",
+        no:"「委屈」是因為你在意的不是照顧本身，而是在意「有沒有被感謝」。這是一個不同的念頭。"
+      },
+      {
+        text:"你決定每天運動，但今天實在太累了，這時候你會？",
+        emoji:"🏃",
+        options:["逼自己一定要動，否則就是意志力不夠","太累了就休息，明天再開始也可以","做一點點就好，不然會有罪惡感","不運動的話，要用其他方式補足"],
+        correct:1,
+        ok:"接受今天的因緣，不代表放棄。「明日再來」不是失敗，是尊重當下的身體。",
+        no:"逼自己做到，是把「運動」變成另一種執著。太累了還要硬撐，那不是自律，是跟自己過不去。"
+      }
+    ]
+  },
+  {
+    name:"為什麼偏偏是我",
+    tag:"沒有「偏偏」，只有因緣到了",
+    questions:[
+      {
+        text:"你認真工作卻被裁員，而摸魚的同事卻安然無恙。你心裡想的是？",
+        emoji:"😤",
+        options:["不公平，這世界就是這樣黑暗","有它的因緣，也許這是個轉機","運氣不好，下次找工作要看風水","算了，想這些也沒用"],
+        correct:1,
+        ok:"你願意先接受這件事存在，然後才找答案。情緒不會改變事實，但會消耗你。",
+        no:"不公平的感覺是真實的，但沉浸在情緒裡不會讓下一份工作更好。接受，然後行動。"
+      },
+      {
+        text:"下雨天你沒帶傘，被淋成落湯雞趕到了。這時候你會？",
+        emoji:"🌧️",
+        options:["抱怨老天爺故意為難自己","接受事實，趕快處理濕掉的衣服","後悔早上沒看天氣預報","覺得今天真倒楣，其他事情也會不順"],
+        correct:1,
+        ok:"雨是冷的，但你多淋了一場情緒的雨，是你自己加的。接受它，處理它，然後放下它。",
+        no:"你已經淋了一場生理的雨，又自己發明了一場心理的雨。」天氣不是故意的，它只是天氣。"
+      },
+      {
+        text:"你努力了很久，結果還是失敗了。朋友說：「你已經做得很好了。」你的感受是？",
+        emoji:"💔",
+        options:["聽起來像安慰，其實只是客套話","謝謝，至少有人看見了","不接受，我明明可以做得更好","不知道，反正就是很難過"],
+        correct:1,
+        ok:"你願意接受別人的善意，而不急著否定它。這就是「全部清清楚楚，全部不在乎」。",
+        no:"「做得很好」不是客套話，是你確實付出的事實。你只是還不願意承認：失敗也是一種結果。"
+      }
+    ]
+  },
+  {
+    name:"生活小測驗",
+    tag:"把佛法拉回日常的二十四小時",
+    questions:[
+      {
+        text:"同事在背後說了你的壞話，你後來知道了。你第一個反應是？",
+        emoji:"🗣️",
+        options:["直接去跟他對質","先想想：他為什麼要這樣說？","當作沒這回事，不影響心情","很受傷，我到底做錯什麼"],
+        correct:2,
+        ok:"你選擇不讓這件事進入你的心。說壞話的是他的功課，不是你的。",
+        no:"他的壞話已經說完了，但你在心裡幫他繼續廣播。要不要接收，其實是你自己決定的。"
+      },
+      {
+        text:"你在滑手機，看到別人去旅行的美照，突然覺得自己的人生很乏味。這時候？",
+        emoji:"📱",
+        options:["羨慕，也想安排一趟旅行","告訴自己：別人的照片都是修過的","有點低落，但過一下就好了","覺得自己很沒用，什麼都做不好"],
+        correct:1,
+        ok:"你知道你看到的是別人想讓你看到的。這就是「心的解讀」——你選擇不信它。",
+        no:"別人的照片只是一張照片，是你幫它加了一整部「別人比較好」的電影。"
+      },
+      {
+        text:"你一直很想改掉的壞習慣（如拖延、亂花錢）到現在還是改不掉，你覺得？",
+        emoji:"🔄",
+        options:["我意志力就是不夠","習氣本來就難改，慢慢來就好","乾脆放棄，反正改不掉","很討厭自己，每次都失敗"],
+        correct:1,
+        ok:"你知道習氣是「練習來的」，也可以慢慢「練習改掉」。不用討厭自己，那只是另一個念頭。",
+        no:"討厭自己不會讓習氣消失，只會多一個「討厭自己」的習氣。知道自己有習氣，知道就好，不必打成一團。"
+      }
+    ]
+  }
+];
+
+let state = {
+  chapter: -1,
+  qIndex: 0,
+  score: 0,
+  totalScore: 0,
+  chapterDone: [],
+  currentChDone: false
+};
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function goHome() { showScreen('s-cover'); }
+
+function startGame() {
+  state.chapter = 0;
+  state.qIndex = 0;
+  state.score = 0;
+  state.currentChDone = false;
+  renderChapters();
+  showScreen('s-chapters');
+}
+
+function renderChapters() {
+  var grid = document.getElementById('chGrid');
+  var doneCount = 0;
+  state.chapterDone.forEach(function(v){ if(v) doneCount++; });
+  document.getElementById('chProg').style.width = (doneCount / CHAPTERS.length * 100) + '%';
+  var html = '';
+  CHAPTERS.forEach(function(ch, i) {
+    var isLocked = (i > 0 && !state.chapterDone[i-1]);
+    var isDone = state.chapterDone[i];
+    var stars = isDone ? '★★★' : (i === doneCount ? '☆★★' : '☆☆☆');
+    var cls = isLocked ? 'ch-card locked' : 'ch-card';
+    html += '<div class="' + cls + '" data-ch="' + i + '">'
+           + '<div class="ch-num">關卡 ' + (i+1) + '</div>'
+           + '<div class="ch-name">' + ch.name + '</div>'
+           + '<div class="ch-desc">' + ch.tag + '</div>'
+           + '<div class="ch-stars">' + stars + '</div>'
+           + '</div>';
+  });
+  grid.innerHTML = html;
+}
+
+function startChapter(i) {
+  state.chapter = i;
+  state.qIndex = 0;
+  state.score = 0;
+  state.currentChDone = false;
+  loadQuestion();
+  showScreen('s-quiz');
+}
+
+function loadQuestion() {
+  var ch = CHAPTERS[state.chapter];
+  var q = ch.questions[state.qIndex];
+  document.getElementById('quizChName').textContent = '關卡 ' + (state.chapter+1) + '：' + ch.name;
+  document.getElementById('quizCounter').textContent = '第 ' + (state.qIndex+1) + ' / ' + ch.questions.length + ' 題';
+  document.getElementById('qProg').style.width = (state.qIndex / ch.questions.length * 100) + '%';
+
+  var letters = ['Ａ','Ｂ','Ｃ','Ｄ'];
+  document.getElementById('qText').innerHTML = '<span class="emoji">' + (q.emoji||'❓') + '</span> ' + q.text;
+
+  var optHtml = '';
+  q.options.forEach(function(opt, i) {
+    optHtml += '<button class="opt-btn" data-opt="' + i + '">'
+            + '<span class="opt-letter">' + letters[i] + '</span>'
+            + '<span>' + opt + '</span>'
+            + '</button>';
+  });
+  document.getElementById('optList').innerHTML = optHtml;
+  document.getElementById('feedback').innerHTML = '';
+  document.getElementById('nextBtn').classList.add('hidden');
+}
+
+function selectOption(i) {
+  var ch = CHAPTERS[state.chapter];
+  var q = ch.questions[state.qIndex];
+  var buttons = document.querySelectorAll('.opt-btn');
+  buttons.forEach(function(b){ b.disabled = true; });
+
+  if (i === q.correct) {
+    buttons[i].classList.add('correct');
+    state.score += 10;
+    showFeedback(true, q.ok);
+  } else {
+    buttons[i].classList.add('wrong');
+    buttons[q.correct].classList.add('correct');
+    showFeedback(false, q.no);
+  }
+  buttons.forEach(function(b, idx) {
+    if (idx !== i && idx !== q.correct) b.classList.add('dim');
+  });
+
+  document.getElementById('nextBtn').classList.remove('hidden');
+}
+
+function showFeedback(isOK, text) {
+  var fb = document.getElementById('feedback');
+  fb.innerHTML = '<div class="feedback ' + (isOK ? 'correct-fb' : 'wrong-fb') + '">'
+    + '<div class="feedback-label">' + (isOK ? '✅ 這個態度很自由' : '❌ 這裡有個小執著') + '</div>'
+    + '<div>' + text + '</div>'
+    + '</div>';
+}
+
+function nextQuestion() {
+  var ch = CHAPTERS[state.chapter];
+  state.qIndex++;
+  if (state.qIndex >= ch.questions.length) {
+    finishChapter();
+  } else {
+    loadQuestion();
+  }
+}
+
+function finishChapter() {
+  state.chapterDone[state.chapter] = true;
+  state.totalScore += state.score;
+  state.currentChDone = true;
+  showResult();
+}
+
+function msgs(len) {
+  if (len >= 30) return ['全醒！你已經不在夢裡了。', '這份清醒，不用刻意維持，它本來就在。'];
+  if (len >= 20) return ['半夢半醒之間，你已經看見光了。', '再練習「不在乎」，會更自由。'];
+  return ['還在夢裡打轉，但沒關系。', '把這份覺察帶回去，生活就是道場。'];
+}
+
+function showResult() {
+  var ch = CHAPTERS[state.chapter];
+  var isLast = (state.chapter >= CHAPTERS.length - 1);
+  var m = msgs(state.score);
+  var label = state.score >= 30 ? '全醒 🌕' : (state.score >= 20 ? '半醒 🌗' : '還在夢裡 🌑');
+
+  var html = '<div style="font-size:0.85rem;color:var(--text-dim);letter-spacing:0.1em;margin-bottom:10px;">關卡 ' + (state.chapter+1) + ' 完成</div>'
+    + '<div style="font-size:1.4rem;font-weight:700;color:var(--accent);margin-bottom:4px;">' + ch.name + '</div>'
+    + '<div class="result-score">' + state.score + '</div>'
+    + '<div class="result-label">' + label + '　（' + state.score + ' / 30 分）</div>'
+    + '<div class="result-msg"><div style="margin-bottom:12px;font-weight:700;">' + m[0] + '</div><div>' + m[1] + '</div></div>'
+    + '<div class="result-actions">'
+    + '<button class="btn-secondary" id="btnBack">返回選關</button>'
+    + (isLast
+        ? '<button class="btn-primary" id="btnNext">查看總結 →</button>'
+        : '<button class="btn-primary" id="btnNext">下一關 →</button>')
+    + '</div>';
+  var card = document.getElementById('resultCard');
+  card.innerHTML = html;
+  document.getElementById('btnBack').onclick = function(){ showScreen('s-chapters'); };
+  document.getElementById('btnNext').onclick = isLast ? showFinal : goNext;
+  showScreen('s-result');
+}
+
+function goNext() {
+  if (state.chapter + 1 >= CHAPTERS.length) { showFinal(); return; }
+  state.chapter++;
+  state.qIndex = 0;
+  state.score = 0;
+  state.currentChDone = false;
+  loadQuestion();
+  showScreen('s-quiz');
+}
+
+function showFinal() {
+  var total = state.totalScore;
+  var verse = '';
+  if (total >= 150) {
+    verse = '「見緣起即見法，見法就見空，見空就見佛。」<span class="attr">—— 敲醒夢中人</span>';
+  } else if (total >= 100) {
+    verse = '「全部清清楚楚，全部不在乎。」<span class="attr">—— 敲醒夢中人</span>';
+  } else {
+    verse = '「世事一切緣起如幻，大家寧可裝睡，眷戀夢裡不實的幻影。」<span class="attr">—— 敲醒夢中人</span>';
+  }
+
+  var html = '<div class="final-title">全部醒來了 🎉</div>'
+    + '<div style="font-size:1.1rem;color:var(--text-dim);margin-bottom:8px;">總得分</div>'
+    + '<div class="final-total">' + total + ' / 180</div>'
+    + '<div class="final-verse">' + verse + '</div>'
+    + '<button class="btn-primary" style="margin-top:16px;" id="btnRestart">再測一次</button>';
+  var card = document.getElementById('finalCard');
+  card.innerHTML = html;
+  document.getElementById('btnRestart').onclick = restartGame;
+  showScreen('s-final');
+}
+
+function restartGame() {
+  state = { chapter:-1, qIndex:0, score:0, totalScore:0, chapterDone:[], currentChDone:false };
+  showScreen('s-cover');
+}
+
+function confirmExit() {
+  if (state.currentChDone || state.qIndex === 0) {
+    showScreen('s-chapters');
+    return;
+  }
+  if (confirm('離開後本關進度會消失，確定要返回嗎？')) {
+    showScreen('s-chapters');
+  }
+}
+
+// 事件監聽器（腳本已在 body 底部，DOM 已就緒）
+document.getElementById('btnStart').addEventListener('click', startGame);
+document.getElementById('btnHome').addEventListener('click', goHome);
+document.getElementById('btnExit').addEventListener('click', confirmExit);
+document.getElementById('nextBtn').addEventListener('click', nextQuestion);
+
+// 關卡卡片點擊（事件代理）
+document.getElementById('chGrid').addEventListener('click', function(e) {
+  var card = e.target.closest('.ch-card');
+  if (!card || card.classList.contains('locked')) return;
+  startChapter(parseInt(card.dataset.ch, 10));
+});
+
+// 選項按鈕點擊（事件代理）
+document.getElementById('optList').addEventListener('click', function(e) {
+  var btn = e.target.closest('.opt-btn');
+  if (!btn || btn.disabled) return;
+  selectOption(parseInt(btn.dataset.opt, 10));
+});
+</script>
+</body>
+</html>
