@@ -378,6 +378,9 @@ let state = {
   currentChDone: false
 };
 
+// 每次載入強制清除舊狀態，確保每人從零開始
+try { localStorage.removeItem('wakeUpGame'); } catch(e){}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
